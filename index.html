@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kalkulator Berat Kering & IDWG — dengan Riwayat Pasien</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Spectral:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap');
+
+  :root{
+    --bg:#EEF2EF; --surface:#FFFFFF; --ink:#17231F; --ink-soft:#4A5B53; --line:#D7DED9;
+    --teal:#1F4E4B; --teal-soft:#E1ECEA; --amber:#9C6A2B; --amber-soft:#F3E7D6;
+    --danger:#9C3D2E; --danger-soft:#F4E0DA; --safe:#3C7350; --safe-soft:#E1EBE3;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans', system-ui, sans-serif; line-height:1.5; padding:24px 14px 64px;}
+  .page{max-width:820px; margin:0 auto;}
+  h1,h2,h3{font-family:'Spectral', Georgia, serif; margin:0;}
+  .hidden{display:none !important;}
+
+  /* ---- shell / topbar ---- */
+  .topbar{display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; flex-wrap:wrap; gap:8px;}
+  .topbar h1{font-size:22px; color:var(--teal); font-weight:600;}
+  .topbar .sub{font-size:13px; color:var(--ink-soft);}
+  button{
+    font-family:'IBM Plex Sans', sans-serif; font-size:14px; font-weight:600; cursor:pointer;
+    border-radius:3px; border:1px solid var(--teal); background:var(--teal); color:#fff; padding:9px 16px;
+  }
+  button.ghost{background:transparent; color:var(--teal);}
+  button.danger{border-color:var(--danger); background:var(--danger);}
+  button.danger.ghost{background:transparent; color:var(--danger);}
+  button:disabled{opacity:.5; cursor:not-allowed;}
+  button:hover:not(:disabled){filter:brightness(0.95);}
+
+  /* ---- panels ---- */
+  section.panel{background:var(--surface); border:1px solid var(--line); border-left:3px solid var(--teal); border-radius:4px; padding:22px 24px; margin-bottom:20px;}
+  section.panel h2{font-size:13px; color:var(--teal); font-weight:600; margin-bottom:16px;}
+
+  /* ---- forms ---- */
+  label{display:flex; flex-direction:column; gap:6px; font-size:13.5px; color:var(--ink-soft); margin-bottom:14px;}
+  input[type="text"], input[type="number"]{
+    font-family:'IBM Plex Mono', ui-monospace, monospace; font-size:15.5px; color:var(--ink);
+    background:var(--bg); border:1px solid var(--line); border-radius:3px; padding:9px 10px;
+  }
+  input:focus-visible{outline:2px solid var(--teal); outline-offset:1px;}
+  .field-grid{display:grid; grid-template-columns:1fr 1fr; gap:16px;}
+  .field-grid.narrow{max-width:420px;}
+  @media (max-width:520px){ .field-grid{grid-template-columns:1fr;} }
+
+  /* ---- patient search / combobox ---- */
+  .patient-search-wrap{position:relative;}
+  .patient-search-input{
+    width:100%; font-family:'IBM Plex Sans', sans-serif; font-size:15px; color:var(--ink);
+    background:var(--bg); border:1px solid var(--line); border-radius:3px; padding:11px 14px;
+  }
+  .patient-search-input:focus-visible{outline:2px solid var(--teal); outline-offset:1px;}
+  .patient-dropdown{
+    position:absolute; left:0; right:0; top:calc(100% + 4px); z-index:20;
+    background:var(--surface); border:1px solid var(--line); border-radius:4px;
+    box-shadow:0 6px 18px rgba(23,35,31,0.12); max-height:280px; overflow-y:auto;
+  }
+  .patient-dropdown-item, .patient-dropdown-add, .patient-dropdown-empty{
+    display:flex; justify-content:space-between; align-items:center; gap:10px;
+    padding:10px 14px; font-size:14px; cursor:pointer;
+  }
+  .patient-dropdown-item + .patient-dropdown-item, .patient-dropdown-add{ border-top:1px solid var(--line); }
+  .patient-dropdown-item:hover, .patient-dropdown-item.highlighted{ background:var(--teal-soft); }
+  .patient-dropdown-item.current{ font-weight:600; }
+  .patient-dropdown-item .meta{ font-size:12px; color:var(--ink-soft); font-weight:400; flex-shrink:0; }
+  .patient-dropdown-add{ color:var(--teal); font-weight:600; cursor:pointer; }
+  .patient-dropdown-add:hover{ background:var(--teal-soft); }
+  .patient-dropdown-empty{ color:var(--ink-soft); font-style:italic; cursor:default; }
+  .patient-dropdown-empty:hover{ background:none; }
+
+  /* ---- result / badge ---- */
+  .result-strip{display:flex; gap:28px; margin-top:16px; padding-top:16px; border-top:1px solid var(--line); flex-wrap:wrap;}
+  .result-figure{display:flex; flex-direction:column; gap:4px;}
+  .result-label{font-size:12px; color:var(--ink-soft);}
+  .result-value{font-family:'IBM Plex Mono', monospace; font-size:24px; font-weight:600;}
+  .badge{display:inline-block; font-size:13.5px; font-weight:600; padding:4px 11px; border-radius:20px; width:fit-content;}
+  .badge.safe{background:var(--safe-soft); color:var(--safe);}
+  .badge.caution{background:var(--amber-soft); color:var(--amber);}
+  .badge.danger{background:var(--danger-soft); color:var(--danger);}
+  .badge.neutral{background:var(--line); color:var(--ink-soft);}
+
+  .checklist-columns{display:grid; grid-template-columns:1fr 1fr; gap:24px;}
+  @media (max-width:520px){ .checklist-columns{grid-template-columns:1fr;} }
+  .checklist-group h3{font-size:13.5px; font-weight:600; margin-bottom:10px;}
+  .checklist-group.underest h3{color:var(--danger);}
+  .checklist-group.overest h3{color:var(--amber);}
+  .checklist-group label{flex-direction:row; align-items:center; gap:8px; font-size:14px; color:var(--ink); margin-bottom:8px; cursor:pointer;}
+  .checklist-group input[type="checkbox"]{width:16px; height:16px; accent-color:var(--teal);}
+
+  #recommendationBody p{margin:0 0 12px; font-size:14.5px;}
+  #recommendationBody .figure-line{font-family:'IBM Plex Mono', monospace; background:var(--bg); padding:10px 12px; border-radius:3px; font-size:14px; margin:10px 0;}
+  .placeholder{color:var(--ink-soft); font-style:italic;}
+
+  /* ---- history table ---- */
+  table.history{width:100%; border-collapse:collapse; font-size:13.5px;}
+  table.history th, table.history td{text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); vertical-align:middle;}
+  table.history th{color:var(--ink-soft); font-weight:600; font-size:12.5px;}
+  table.history td.num{font-family:'IBM Plex Mono', monospace;}
+  table.history .badge{font-size:12px; padding:3px 9px;}
+  table.history tbody tr{cursor:pointer;}
+  table.history tbody tr:hover{background:var(--teal-soft);}
+  table.history tbody tr.loaded-row{background:var(--teal-soft);}
+  table.history tbody tr.loaded-row td:first-child{font-weight:600;}
+  .del-link{color:var(--danger); font-size:12px; cursor:pointer;}
+  .load-hint{font-size:12px; color:var(--ink-soft); margin:-4px 0 12px;}
+
+  footer{margin-top:12px; padding-top:16px; border-top:1px solid var(--line);}
+  footer p{font-size:12px; color:var(--ink-soft); max-width:66ch; margin:0;}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div id="appScreen">
+    <div class="topbar">
+      <h1>Berat kering &amp; IDWG</h1>
+      <span class="sub">Riwayat interpretasi per pasien — naikkan / turunkan berat kering</span>
+    </div>
+
+    <section class="panel">
+      <h2>Pasien</h2>
+      <div class="patient-search-wrap">
+        <input type="text" id="patientSearch" class="patient-search-input" placeholder="Cari nama/ID pasien, atau ketik untuk menambah baru…" autocomplete="off">
+        <div class="patient-dropdown hidden" id="patientDropdown"></div>
+      </div>
+    </section>
+
+    <div id="patientWorkspace" class="hidden">
+
+      <section class="panel">
+        <h2>Data sesi — <span id="activePatientLabel"></span></h2>
+        <div class="field-grid">
+          <label>Berat kering saat ini (kg) <input type="number" step="0.1" id="dryWeight"></label>
+          <label>Berat badan pre-HD sesi ini (kg) <input type="number" step="0.1" id="preHD"></label>
+        </div>
+        <div class="result-strip">
+          <div class="result-figure"><span class="result-label">IDWG</span><span class="result-value" id="idwgValue">–</span></div>
+          <div class="result-figure"><span class="result-label">Kategori</span><span class="badge neutral" id="idwgBadge">–</span></div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Estimasi ultrafiltrasi (UF)</h2>
+        <div class="field-grid">
+          <label>Minum intra-HD (ml) <input type="number" step="1" id="intakeIntraHD" value="0"></label>
+          <label>Sisa priming + wash out (ml) <input type="number" step="1" id="primingWashout" value="0"></label>
+          <label>Flushing NaCl (ml) <input type="number" step="1" id="flushingNaCl" value="0"></label>
+          <label>Volume transfusi (ml) <input type="number" step="1" id="transfusiVol" value="0"></label>
+        </div>
+        <div class="field-grid narrow">
+          <label>Lama HD (jam) — opsional, untuk hitung rate <input type="number" step="0.1" id="durasiHD"></label>
+        </div>
+        <div class="result-strip">
+          <div class="result-figure"><span class="result-label">Total UF</span><span class="result-value" id="ufTotalValue">–</span></div>
+          <div class="result-figure"><span class="result-label">UF rate</span><span class="badge neutral" id="ufRateBadge">–</span></div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Rentang target penyesuaian</h2>
+        <div class="field-grid narrow">
+          <label>Target konservatif (%) <input type="number" step="0.1" id="targetMin" value="2.5"></label>
+          <label>Batas maksimal (%) <input type="number" step="0.1" id="targetMax" value="3"></label>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Tanda klinis yang muncul</h2>
+        <p id="checklistApproxWarning" class="hidden" style="font-size:13px; color:var(--amber); background:var(--amber-soft); padding:9px 12px; border-radius:3px; margin:-2px 0 16px;">⚠️ Ceklist di bawah adalah <strong>perkiraan</strong> — riwayat ini disimpan sebelum item ceklist direkam satu-per-satu, jadi sistem hanya menandai sejumlah item pertama sesuai jumlah yang tersimpan. Item yang tercentang belum tentu sama dengan yang aslinya dipilih saat itu. Verifikasi ulang secara klinis sebelum dipakai.</p>
+        <div class="checklist-columns">
+          <div class="checklist-group underest">
+            <h3>Sugestif berat kering terlalu rendah</h3>
+            <label><input type="checkbox" class="sign-under"> Kram otot menjelang/akhir sesi HD</label>
+            <label><input type="checkbox" class="sign-under"> Hipotensi intradialisis</label>
+            <label><input type="checkbox" class="sign-under"> Pusing / lemas pasca-HD</label>
+            <label><input type="checkbox" class="sign-under"> Sesi terpaksa diakhiri lebih awal</label>
+          </div>
+          <div class="checklist-group overest">
+            <h3>Sugestif berat kering terlalu tinggi</h3>
+            <label><input type="checkbox" class="sign-over"> Edema perifer</label>
+            <label><input type="checkbox" class="sign-over"> Sesak / ortopnue</label>
+            <label><input type="checkbox" class="sign-over"> JVP meningkat</label>
+            <label><input type="checkbox" class="sign-over"> Asites</label>
+            <label><input type="checkbox" class="sign-over"> TD predialisis sulit dikontrol</label>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" id="recommendationPanel">
+        <h2>Rekomendasi</h2>
+        <div class="result-strip" style="margin-top:0; padding-top:0; border-top:none;">
+          <div class="result-figure"><span class="result-label">Interpretasi berat kering</span><span class="badge neutral" id="interpBadge">–</span></div>
+        </div>
+        <div id="recommendationBody" style="margin-top:14px;"><p class="placeholder">Isi data di atas untuk melihat rekomendasi.</p></div>
+        <div style="margin-top:16px;">
+          <button id="saveEntryBtn">Simpan ke riwayat pasien ini</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Riwayat perhitungan &amp; interpretasi — <span id="historyPatientLabel"></span></h2>
+        <div id="historyTableWrap"><p class="placeholder">Belum ada riwayat tersimpan untuk pasien ini.</p></div>
+        <div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap;">
+          <button class="ghost" id="downloadExcelBtn">Unduh riwayat (Excel)</button>
+          <button class="danger ghost" id="deletePatientBtn">Hapus pasien &amp; seluruh riwayatnya</button>
+        </div>
+      </section>
+
+    </div>
+
+    <footer>
+      <p>Alat bantu hitung berdasarkan tabel IDWG, estimasi UF, dan tanda klinis yang diinput manual — bukan pengganti penilaian klinis menyeluruh maupun rekam medis resmi. Klasifikasi UF rate: ≤10 ml/kg/jam aman, 10–13 ml/kg/jam waspada, &gt;13 ml/kg/jam berisiko tinggi (berdasarkan literatur outcome kardiovaskular hemodialisis). Gunakan kode/inisial pasien, bukan data identitas lengkap. Data pasien &amp; riwayat disimpan lokal di browser yang sama (localStorage) — tidak terbagi antar perangkat/browser, dan bisa hilang jika data browser dibersihkan.</p>
+    </footer>
+  </div>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+/* ===================== storage layer (plain localStorage — fully self-contained) ===================== */
+function lsGet(key){
+  try{
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : null;
+  }catch(e){ return null; }
+}
+function lsSet(key, value){
+  try{ localStorage.setItem(key, JSON.stringify(value)); return true; }
+  catch(e){ return false; }
+}
+
+const ROSTER_KEY = 'idwg-patient-roster';
+const HISTORY_KEY_PREFIX = 'idwg-history-';
+
+async function fetchPatients(){
+  const roster = lsGet(ROSTER_KEY) || [];
+  return roster.slice().sort((a,b) => (a.addedAt||'').localeCompare(b.addedAt||''));
+}
+
+async function addPatientRecord(name){
+  const roster = lsGet(ROSTER_KEY) || [];
+  const id = 'p_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
+  const addedAt = new Date().toISOString();
+  roster.push({ id, name, addedAt });
+  lsSet(ROSTER_KEY, roster);
+  return id;
+}
+
+async function deletePatientRecord(id){
+  let roster = lsGet(ROSTER_KEY) || [];
+  roster = roster.filter(p => p.id !== id);
+  lsSet(ROSTER_KEY, roster);
+  try{ localStorage.removeItem(HISTORY_KEY_PREFIX + id); }catch(e){}
+}
+
+async function fetchHistory(patientId){
+  return lsGet(HISTORY_KEY_PREFIX + patientId) || [];
+}
+
+async function saveHistory(patientId, entries){
+  return lsSet(HISTORY_KEY_PREFIX + patientId, entries);
+}
+
+/* ===================== app state ===================== */
+let activePatientId = null;
+
+const el = id => document.getElementById(id);
+
+/* ===================== patient search / combobox ===================== */
+let allPatients = [];
+let dropdownItems = [];
+let highlightedIdx = -1;
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+async function refreshPatientsCache(){
+  allPatients = await fetchPatients();
+}
+
+function closeDropdown(){
+  el('patientDropdown').classList.add('hidden');
+  highlightedIdx = -1;
+}
+
+function updateHighlight(items){
+  items.forEach((it, i) => it.classList.toggle('highlighted', i === highlightedIdx));
+  if(items[highlightedIdx]) items[highlightedIdx].scrollIntoView({block:'nearest'});
+}
+
+function renderDropdown(query){
+  const dd = el('patientDropdown');
+  const q = query.trim().toLowerCase();
+  const matches = q ? allPatients.filter(p => p.name.toLowerCase().includes(q)) : allPatients;
+  dropdownItems = matches.slice(0, 50);
+  highlightedIdx = -1;
+
+  let html = '';
+  if(dropdownItems.length === 0){
+    html = `<div class="patient-dropdown-empty">${q ? 'Tidak ada pasien yang cocok.' : 'Belum ada pasien tersimpan.'}</div>`;
+  } else {
+    html = dropdownItems.map((p, i) => {
+      const d = new Date(p.addedAt);
+      const dateStr = d.toLocaleDateString('id-ID', {day:'2-digit', month:'short', year:'numeric'});
+      return `<div class="patient-dropdown-item${p.id === activePatientId ? ' current' : ''}" data-idx="${i}"><span>${escapeHtml(p.name)}</span><span class="meta">${dateStr}</span></div>`;
+    }).join('');
+  }
+
+  const exactMatch = q && allPatients.some(p => p.name.toLowerCase() === q);
+  const trimmed = query.trim();
+  if(trimmed && !exactMatch){
+    html += `<div class="patient-dropdown-add" data-add="1">+ Tambah pasien baru: “${escapeHtml(trimmed)}”</div>`;
+  }
+
+  dd.innerHTML = html;
+  dd.classList.remove('hidden');
+
+  dd.querySelectorAll('.patient-dropdown-item').forEach(item => {
+    item.addEventListener('mousedown', async (e) => {
+      e.preventDefault();
+      const idx = parseInt(item.getAttribute('data-idx'));
+      const p = dropdownItems[idx];
+      if(p) await chooseExistingPatient(p);
+    });
+  });
+  const addBtn = dd.querySelector('.patient-dropdown-add');
+  if(addBtn){
+    addBtn.addEventListener('mousedown', async (e) => {
+      e.preventDefault();
+      await createAndSelectPatient(trimmed);
+    });
+  }
+}
+
+async function chooseExistingPatient(p){
+  el('patientSearch').value = p.name;
+  closeDropdown();
+  await selectPatient(p.id, p.name);
+}
+
+async function createAndSelectPatient(name){
+  if(!name) return;
+  const id = await addPatientRecord(name);
+  await refreshPatientsCache();
+  el('patientSearch').value = name;
+  closeDropdown();
+  await selectPatient(id, name);
+}
+
+el('patientSearch').addEventListener('input', () => renderDropdown(el('patientSearch').value));
+el('patientSearch').addEventListener('focus', () => {
+  el('patientSearch').select();
+  renderDropdown(el('patientSearch').value);
+});
+el('patientSearch').addEventListener('blur', () => { setTimeout(closeDropdown, 150); });
+el('patientSearch').addEventListener('keydown', (e) => {
+  const dd = el('patientDropdown');
+  if(dd.classList.contains('hidden')) return;
+  const items = Array.from(dd.querySelectorAll('.patient-dropdown-item'));
+  if(e.key === 'ArrowDown'){
+    e.preventDefault();
+    highlightedIdx = Math.min(highlightedIdx + 1, items.length - 1);
+    updateHighlight(items);
+  } else if(e.key === 'ArrowUp'){
+    e.preventDefault();
+    highlightedIdx = Math.max(highlightedIdx - 1, 0);
+    updateHighlight(items);
+  } else if(e.key === 'Enter'){
+    e.preventDefault();
+    if(highlightedIdx >= 0 && items[highlightedIdx]){
+      items[highlightedIdx].dispatchEvent(new Event('mousedown', {cancelable:true}));
+    } else {
+      const addBtn = dd.querySelector('.patient-dropdown-add');
+      if(addBtn) addBtn.dispatchEvent(new Event('mousedown', {cancelable:true}));
+    }
+  } else if(e.key === 'Escape'){
+    closeDropdown();
+    el('patientSearch').blur();
+  }
+});
+
+async function selectPatient(id, name){
+  activePatientId = id;
+  el('activePatientLabel').textContent = name;
+  el('historyPatientLabel').textContent = name;
+  el('patientWorkspace').classList.remove('hidden');
+  clearCalcInputs();
+  await renderHistory();
+}
+
+el('deletePatientBtn').addEventListener('click', async () => {
+  if(!activePatientId) return;
+  if(!confirm('Hapus pasien ini beserta seluruh riwayatnya? Tindakan ini tidak bisa dibatalkan.')) return;
+  await deletePatientRecord(activePatientId);
+  activePatientId = null;
+  el('patientWorkspace').classList.add('hidden');
+  el('patientSearch').value = '';
+  await refreshPatientsCache();
+});
+
+const UNDER_LABELS = ['Kram otot menjelang/akhir sesi HD', 'Hipotensi intradialisis', 'Pusing / lemas pasca-HD', 'Sesi terpaksa diakhiri lebih awal'];
+const OVER_LABELS = ['Edema perifer', 'Sesak / ortopnue', 'JVP meningkat', 'Asites', 'TD predialisis sulit dikontrol'];
+
+el('downloadExcelBtn').addEventListener('click', async () => {
+  if(!activePatientId) return;
+  if(typeof XLSX === 'undefined'){
+    alert('Pustaka Excel gagal dimuat (perlu koneksi internet saat membuka file ini). Coba lagi setelah tersambung ke internet.');
+    return;
+  }
+  const history = await fetchHistory(activePatientId);
+  if(history.length === 0){
+    alert('Belum ada riwayat untuk diunduh pada pasien ini.');
+    return;
+  }
+  const patientName = el('activePatientLabel').textContent || 'pasien';
+
+  const header = ['Tanggal', 'BB kering (kg)', 'Pre-HD (kg)', 'IDWG (%)', 'IDWG (kg)', 'Kategori IDWG', 'Interpretasi berat kering', 'UF total (ml)', 'UF rate (ml/kg/jam)', 'Tanda underestimasi', 'Tanda overestimasi', 'Catatan'];
+
+  const rows = history.map(h => {
+    const d = new Date(h.date);
+    const dateStr = d.toLocaleDateString('id-ID', {day:'2-digit', month:'short', year:'numeric'}) + ' ' + d.toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'});
+    let underText, overText, note = '';
+    if(Array.isArray(h.underChecked)){
+      underText = UNDER_LABELS.filter((_, i) => h.underChecked[i]).join('; ') || '-';
+    } else {
+      underText = h.underCount ? `${h.underCount} tanda tercentang (item spesifik tidak tercatat)` : '-';
+      if(h.underCount > 0) note = 'Ceklist versi lama — hanya jumlah yang tercatat, bukan item spesifik';
+    }
+    if(Array.isArray(h.overChecked)){
+      overText = OVER_LABELS.filter((_, i) => h.overChecked[i]).join('; ') || '-';
+    } else {
+      overText = h.overCount ? `${h.overCount} tanda tercentang (item spesifik tidak tercatat)` : '-';
+      if(h.overCount > 0 && !note) note = 'Ceklist versi lama — hanya jumlah yang tercatat, bukan item spesifik';
+    }
+    const ufTotalVal = (h.ufTotal !== undefined && h.ufTotal !== null) ? Math.round(h.ufTotal) : '';
+    const ufRateVal = (h.ufRate !== undefined && h.ufRate !== null && !isNaN(h.ufRate)) ? Number(h.ufRate.toFixed(2)) : '';
+    return [
+      dateStr,
+      Number(h.dw.toFixed(1)),
+      Number(h.preHD.toFixed(1)),
+      Number(h.idwgPct.toFixed(1)),
+      Number(h.idwgKg.toFixed(2)),
+      h.category || '-',
+      h.interpretation || '-',
+      ufTotalVal,
+      ufRateVal,
+      underText,
+      overText,
+      note
+    ];
+  });
+
+  const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
+  ws['!cols'] = [{wch:16},{wch:12},{wch:10},{wch:9},{wch:9},{wch:14},{wch:24},{wch:12},{wch:14},{wch:34},{wch:34},{wch:36}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Riwayat');
+
+  const safeName = patientName.replace(/[^a-z0-9_\-]+/gi, '_').replace(/^_+|_+$/g, '').slice(0, 40) || 'pasien';
+  const fileDate = new Date().toISOString().slice(0, 10);
+  XLSX.writeFile(wb, `riwayat-idwg-${safeName}-${fileDate}.xlsx`);
+});
+
+function clearCalcInputs(){
+  el('dryWeight').value = '';
+  el('preHD').value = '';
+  el('intakeIntraHD').value = '0';
+  el('primingWashout').value = '0';
+  el('flushingNaCl').value = '0';
+  el('transfusiVol').value = '0';
+  el('durasiHD').value = '';
+  document.querySelectorAll('.sign-under, .sign-over').forEach(c => c.checked = false);
+  el('checklistApproxWarning').classList.add('hidden');
+  loadedHistoryIdx = null;
+  calc();
+}
+
+/* ===================== calculator logic ===================== */
+function fmt(n){ return n.toLocaleString('id-ID', {minimumFractionDigits:1, maximumFractionDigits:1}); }
+function fmtMl(n){ return n.toLocaleString('id-ID', {maximumFractionDigits:0}); }
+function classify(pct, tMax){
+  if(pct <= tMax) return {label:'Normal / ringan', cls:'safe'};
+  if(pct <= tMax + 2) return {label:'Sedang', cls:'caution'};
+  return {label:'Berat / tinggi', cls:'danger'};
+}
+function classifyUF(rate){
+  if(rate <= 10) return {label:'Aman', cls:'safe'};
+  if(rate <= 13) return {label:'Waspada', cls:'caution'};
+  return {label:'Berisiko tinggi', cls:'danger'};
+}
+
+let lastComputed = null;
+
+function calc(){
+  const dw = parseFloat(el('dryWeight').value);
+  const preHD = parseFloat(el('preHD').value);
+  const tMin = parseFloat(el('targetMin').value);
+  const tMax = parseFloat(el('targetMax').value);
+
+  if(!dw || !preHD || dw<=0 || preHD<=0 || preHD<=dw){
+    el('idwgValue').textContent = '–'; el('idwgBadge').textContent='–'; el('idwgBadge').className='badge neutral';
+    el('ufTotalValue').textContent = '–'; el('ufRateBadge').textContent='–'; el('ufRateBadge').className='badge neutral';
+    el('interpBadge').textContent = '–'; el('interpBadge').className = 'badge neutral';
+    el('recommendationBody').innerHTML = '<p class="placeholder">Masukkan berat kering dan berat pre-HD yang valid (pre-HD harus lebih besar dari berat kering).</p>';
+    el('recommendationPanel').className = 'panel'; lastComputed = null; return;
+  }
+
+  const idwgKg = preHD - dw;
+  const idwgPct = (idwgKg / dw) * 100;
+  const cat = classify(idwgPct, tMax);
+  el('idwgValue').textContent = fmt(idwgPct) + '%  (' + fmt(idwgKg) + ' kg)';
+  el('idwgBadge').textContent = cat.label; el('idwgBadge').className = 'badge ' + cat.cls;
+
+  const intake = parseFloat(el('intakeIntraHD').value) || 0;
+  const priming = parseFloat(el('primingWashout').value) || 0;
+  const flushing = parseFloat(el('flushingNaCl').value) || 0;
+  const transfusi = parseFloat(el('transfusiVol').value) || 0;
+  const durasi = parseFloat(el('durasiHD').value);
+  const ufTotal = idwgKg*1000 + intake + priming + flushing + transfusi;
+  el('ufTotalValue').textContent = fmtMl(ufTotal) + ' ml';
+  let ufRate = null;
+  if(durasi && durasi > 0){
+    ufRate = ufTotal / dw / durasi;
+    const ufCat = classifyUF(ufRate);
+    el('ufRateBadge').textContent = fmt(ufRate) + ' ml/kg/jam — ' + ufCat.label;
+    el('ufRateBadge').className = 'badge ' + ufCat.cls;
+  } else {
+    el('ufRateBadge').textContent = 'Isi lama HD untuk hitung rate';
+    el('ufRateBadge').className = 'badge neutral';
+  }
+
+  const floorDW = preHD / (1 + tMax/100);
+  const conservativeDW = preHD / (1 + tMin/100);
+  const underBoxes = Array.from(document.querySelectorAll('.sign-under'));
+  const overBoxes = Array.from(document.querySelectorAll('.sign-over'));
+  const underCount = underBoxes.filter(c => c.checked).length;
+  const overCount = overBoxes.filter(c => c.checked).length;
+  const underChecked = underBoxes.map(c => c.checked);
+  const overChecked = overBoxes.map(c => c.checked);
+  const highIDWG = idwgPct > tMax;
+
+  let html = ''; let state = 'safe'; let summary = '';
+  let interp = { label: 'Pertahankan', cls: 'safe' };
+
+  if(highIDWG && underCount>0 && overCount===0){
+    state='danger';
+    interp = { label: 'Pertimbangkan naikkan', cls: 'danger' };
+    summary = `IDWG ${fmt(idwgPct)}% + tanda underestimasi → floor aman ≈ ${fmt(floorDW)} kg`;
+    html += `<p>IDWG saat ini <strong>${fmt(idwgPct)}%</strong>, melebihi target maksimal ${fmt(tMax)}%, disertai tanda sugestif berat kering terlalu rendah.</p>`;
+    html += `<div class="figure-line">Batas bawah aman ≈ ${fmt(floorDW)} kg (BB pre-HD ${fmt(preHD)} kg ÷ (1+${fmt(tMax)}%))</div>`;
+    html += `<p>Pertimbangkan menaikkan berat kering mendekati angka ini, bukan menurunkannya lebih jauh.</p>`;
+  } else if(!highIDWG && overCount>0 && underCount===0){
+    state='caution';
+    interp = { label: 'Pertimbangkan turunkan', cls: 'caution' };
+    summary = `IDWG ${fmt(idwgPct)}% (wajar) tapi ada tanda hipervolemia → geser turun ke ${fmt(floorDW)}–${fmt(conservativeDW)} kg`;
+    html += `<p>IDWG saat ini <strong>${fmt(idwgPct)}%</strong> masih wajar, namun muncul tanda hipervolemia — ingat efek pembagi, IDWG rendah tidak menjamin berat kering sudah pas.</p>`;
+    html += `<div class="figure-line">Rentang penurunan bertahap: ${fmt(conservativeDW)} kg (konservatif) → maksimal ${fmt(floorDW)} kg dalam satu langkah</div>`;
+    html += `<p>Turunkan bertahap, evaluasi ulang tanda klinis tiap sesi.</p>`;
+  } else if(highIDWG && overCount>0 && underCount===0){
+    state='mixed';
+    interp = { label: 'Cek kepatuhan, bukan DW', cls: 'neutral' };
+    summary = `IDWG ${fmt(idwgPct)}% tinggi + tanda hipervolemia tanpa tanda underestimasi → cek kepatuhan cairan/garam`;
+    html += `<p>IDWG tinggi (<strong>${fmt(idwgPct)}%</strong>) + tanda hipervolemia, tanpa tanda underestimasi — lebih mengarah ke masalah kepatuhan cairan/garam, bukan indikasi menaikkan berat kering.</p>`;
+  } else if(!highIDWG && underCount>0 && overCount===0){
+    state='caution';
+    interp = { label: 'Sudah dekat batas bawah', cls: 'caution' };
+    summary = `IDWG ${fmt(idwgPct)}% wajar tapi ada tanda underestimasi → floor aman ≈ ${fmt(floorDW)} kg`;
+    html += `<p>IDWG masih wajar (<strong>${fmt(idwgPct)}%</strong>) tapi muncul tanda underestimasi. Berat kering saat ini mungkin sudah mendekati titik bawah amannya.</p>`;
+    html += `<div class="figure-line">Batas bawah aman ≈ ${fmt(floorDW)} kg</div>`;
+  } else if(underCount>0 && overCount>0){
+    state='mixed';
+    interp = { label: 'Perlu evaluasi lanjut', cls: 'neutral' };
+    summary = `Tanda berlawanan arah muncul bersamaan — butuh pemeriksaan objektif tambahan`;
+    html += `<p>Muncul kombinasi tanda yang berlawanan arah. IDWG dan tanda klinis saja tidak cukup — pertimbangkan bioimpedance/USG paru/BNP.</p>`;
+  } else if(highIDWG && underCount===0 && overCount===0){
+    state='caution';
+    interp = { label: 'Pantau kepatuhan', cls: 'caution' };
+    summary = `IDWG ${fmt(idwgPct)}% di atas target, tanpa tanda klinis spesifik`;
+    html += `<p>IDWG di atas target (<strong>${fmt(idwgPct)}%</strong>) tanpa tanda klinis spesifik — masih perlu dipantau, kemungkinan soal kepatuhan.</p>`;
+  } else {
+    state='safe';
+    interp = { label: 'Pertahankan', cls: 'safe' };
+    summary = `IDWG ${fmt(idwgPct)}% wajar, tanpa tanda klinis mencurigakan`;
+    html += `<p>IDWG dalam rentang wajar (<strong>${fmt(idwgPct)}%</strong>) dan tidak ada tanda klinis mencurigakan. Berat kering saat ini tampak sesuai.</p>`;
+  }
+
+  el('interpBadge').textContent = interp.label;
+  el('interpBadge').className = 'badge ' + interp.cls;
+  el('recommendationBody').innerHTML = html;
+  el('recommendationPanel').className = 'panel recommendation state-' + state;
+
+  lastComputed = { dw, preHD, tMin, tMax, idwgPct, idwgKg, category: cat.label, underCount, overCount, underChecked, overChecked, summary, ufTotal, ufRate, intake, priming, flushing, transfusi, durasi, interpretation: interp.label, interpretationCls: interp.cls };
+}
+
+['dryWeight','preHD','targetMin','targetMax','intakeIntraHD','primingWashout','flushingNaCl','transfusiVol','durasiHD'].forEach(id => el(id).addEventListener('input', calc));
+document.querySelectorAll('.sign-under, .sign-over').forEach(c => c.addEventListener('change', calc));
+
+/* ===================== history ===================== */
+el('saveEntryBtn').addEventListener('click', async () => {
+  if(!activePatientId){ alert('Pilih pasien dulu.'); return; }
+  if(!lastComputed){ alert('Lengkapi data perhitungan dulu.'); return; }
+  el('saveEntryBtn').disabled = true;
+  const history = await fetchHistory(activePatientId);
+  history.unshift({
+    date: new Date().toISOString(),
+    ...lastComputed,
+  });
+  await saveHistory(activePatientId, history);
+  el('saveEntryBtn').disabled = false;
+  loadedHistoryIdx = null;
+  await renderHistory();
+});
+
+async function renderHistory(){
+  if(!activePatientId) return;
+  const history = await fetchHistory(activePatientId);
+  const wrap = el('historyTableWrap');
+  if(history.length === 0){
+    wrap.innerHTML = '<p class="placeholder">Belum ada riwayat tersimpan untuk pasien ini.</p>';
+    return;
+  }
+  let rows = history.map((h, idx) => {
+    const d = new Date(h.date);
+    const dateStr = d.toLocaleDateString('id-ID', {day:'2-digit', month:'short', year:'numeric'}) + ' ' + d.toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'});
+    const ufTotalStr = (h.ufTotal !== undefined && h.ufTotal !== null) ? fmtMl(h.ufTotal) + ' ml' : '–';
+    const ufRateStr = (h.ufRate !== undefined && h.ufRate !== null && !isNaN(h.ufRate)) ? fmt(h.ufRate) + ' ml/kg/jam' : '–';
+    const interpLabel = h.interpretation || '–';
+    const interpCls = h.interpretationCls || 'neutral';
+    return `<tr data-idx="${idx}" class="${idx === loadedHistoryIdx ? 'loaded-row' : ''}">
+      <td>${dateStr}</td>
+      <td class="num">${fmt(h.dw)}</td>
+      <td class="num">${fmt(h.preHD)}</td>
+      <td class="num">${fmt(h.idwgPct)}%</td>
+      <td>${h.category}</td>
+      <td><span class="badge ${interpCls}">${interpLabel}</span></td>
+      <td class="num">${ufTotalStr}</td>
+      <td class="num">${ufRateStr}</td>
+      <td><span class="del-link" data-idx="${idx}">hapus</span></td>
+    </tr>`;
+  }).join('');
+  wrap.innerHTML = `<p class="load-hint">Klik baris riwayat untuk memuat ulang data &amp; ceklist sesi tersebut ke form di atas.</p><div style="overflow-x:auto;"><table class="history">
+    <thead><tr><th>Tanggal</th><th>BB kering</th><th>Pre-HD</th><th>IDWG</th><th>Kategori</th><th>Interpretasi DW</th><th>UF total</th><th>UF rate</th><th></th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table></div>`;
+  wrap.querySelectorAll('.del-link').forEach(link => {
+    link.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const idx = parseInt(link.getAttribute('data-idx'));
+      if(!confirm('Hapus entri riwayat ini?')) return;
+      const h2 = await fetchHistory(activePatientId);
+      h2.splice(idx, 1);
+      await saveHistory(activePatientId, h2);
+      if(loadedHistoryIdx === idx) loadedHistoryIdx = null;
+      await renderHistory();
+    });
+  });
+  wrap.querySelectorAll('table.history tbody tr').forEach(tr => {
+    tr.addEventListener('click', async () => {
+      const idx = parseInt(tr.getAttribute('data-idx'));
+      await loadHistoryEntry(idx);
+    });
+  });
+}
+
+let loadedHistoryIdx = null;
+
+async function loadHistoryEntry(idx){
+  if(!activePatientId) return;
+  const history = await fetchHistory(activePatientId);
+  const h = history[idx];
+  if(!h) return;
+
+  el('dryWeight').value = h.dw ?? '';
+  el('preHD').value = h.preHD ?? '';
+  if(h.tMin !== undefined) el('targetMin').value = h.tMin;
+  if(h.tMax !== undefined) el('targetMax').value = h.tMax;
+  el('intakeIntraHD').value = h.intake ?? 0;
+  el('primingWashout').value = h.priming ?? 0;
+  el('flushingNaCl').value = h.flushing ?? 0;
+  el('transfusiVol').value = h.transfusi ?? 0;
+  el('durasiHD').value = (h.durasi !== undefined && h.durasi !== null && !isNaN(h.durasi)) ? h.durasi : '';
+
+  const underBoxes = Array.from(document.querySelectorAll('.sign-under'));
+  const overBoxes = Array.from(document.querySelectorAll('.sign-over'));
+  const underCount = h.underCount || 0;
+  const overCount = h.overCount || 0;
+  const approxUnder = !Array.isArray(h.underChecked) && underCount > 0;
+  const approxOver = !Array.isArray(h.overChecked) && overCount > 0;
+
+  if(Array.isArray(h.underChecked)){
+    underBoxes.forEach((c, i) => c.checked = !!h.underChecked[i]);
+  } else {
+    underBoxes.forEach((c, i) => c.checked = i < underCount);
+  }
+  if(Array.isArray(h.overChecked)){
+    overBoxes.forEach((c, i) => c.checked = !!h.overChecked[i]);
+  } else {
+    overBoxes.forEach((c, i) => c.checked = i < overCount);
+  }
+
+  el('checklistApproxWarning').classList.toggle('hidden', !(approxUnder || approxOver));
+
+  loadedHistoryIdx = idx;
+  calc();
+  await renderHistory();
+  el('dryWeight').closest('section.panel').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+calc();
+refreshPatientsCache();
+</script>
+</body>
+</html>
