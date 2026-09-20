@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Kalkulator Berat Kering & IDWG — dengan Riwayat Pasien</title>
+<title>Kalkulator DW — dengan Riwayat Pasien</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Spectral:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap');
 
@@ -118,7 +118,7 @@
 
   <div id="appScreen">
     <div class="topbar">
-      <h1>Berat kering &amp; IDWG</h1>
+      <h1>Kalkulator DW</h1>
       <span class="sub">Riwayat interpretasi per pasien — naikkan / turunkan berat kering</span>
     </div>
 
@@ -214,7 +214,7 @@
     </div>
 
     <footer>
-      <p>Alat bantu hitung berdasarkan tabel IDWG, estimasi UF, dan tanda klinis yang diinput manual — bukan pengganti penilaian klinis menyeluruh maupun rekam medis resmi. Klasifikasi UF rate: ≤10 ml/kg/jam aman, 10–13 ml/kg/jam waspada, &gt;13 ml/kg/jam berisiko tinggi (berdasarkan literatur outcome kardiovaskular hemodialisis). Gunakan kode/inisial pasien, bukan data identitas lengkap. Data pasien &amp; riwayat disimpan lokal di browser yang sama (localStorage) — tidak terbagi antar perangkat/browser, dan bisa hilang jika data browser dibersihkan.</p>
+      <p>Alat bantu hitung berdasarkan tabel IDWG, estimasi UF, dan tanda klinis yang diinput manual — bukan pengganti penilaian klinis menyeluruh maupun rekam medis resmi. Klasifikasi UF rate: ≤10 ml/kg/jam aman, 10–13 ml/kg/jam waspada, &gt;13 ml/kg/jam berisiko tinggi (berdasarkan literatur outcome kardiovaskular hemodialisis). Gunakan kode/inisial pasien, bukan data identitas lengkap. Data pasien &amp; riwayat disimpan lokal di peramban yang sama (localStorage) — tidak terbagi antar perangkat/peramban, dan bisa hilang jika data peramban dibersihkan.</p>
     </footer>
   </div>
 
@@ -222,6 +222,7 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
+const el = id => document.getElementById(id);
 /* ===================== storage layer (plain localStorage — fully self-contained) ===================== */
 function lsGet(key){
   try{
@@ -268,8 +269,6 @@ async function saveHistory(patientId, entries){
 
 /* ===================== app state ===================== */
 let activePatientId = null;
-
-const el = id => document.getElementById(id);
 
 /* ===================== patient search / combobox ===================== */
 let allPatients = [];
@@ -477,7 +476,23 @@ function clearCalcInputs(){
   document.querySelectorAll('.sign-under, .sign-over').forEach(c => c.checked = false);
   el('checklistApproxWarning').classList.add('hidden');
   loadedHistoryIdx = null;
+  applyAutoTarget();
   calc();
+}
+
+/* ===================== auto target penyesuaian berdasarkan ceklist ===================== */
+function applyAutoTarget(){
+  const underCount = document.querySelectorAll('.sign-under:checked').length;
+  const overCount = document.querySelectorAll('.sign-over:checked').length;
+  if(overCount > 0 && underCount === 0){
+    // hanya tanda overestimasi yang muncul
+    el('targetMin').value = 3;
+    el('targetMax').value = 4;
+  } else {
+    // hanya tanda underestimasi, tidak ada tanda sama sekali, atau keduanya muncul bersamaan → default
+    el('targetMin').value = 2.5;
+    el('targetMax').value = 3;
+  }
 }
 
 /* ===================== calculator logic ===================== */
@@ -598,7 +613,7 @@ function calc(){
 }
 
 ['dryWeight','preHD','targetMin','targetMax','intakeIntraHD','primingWashout','flushingNaCl','transfusiVol','durasiHD'].forEach(id => el(id).addEventListener('input', calc));
-document.querySelectorAll('.sign-under, .sign-over').forEach(c => c.addEventListener('change', calc));
+document.querySelectorAll('.sign-under, .sign-over').forEach(c => c.addEventListener('change', () => { applyAutoTarget(); calc(); }));
 
 /* ===================== history ===================== */
 el('saveEntryBtn').addEventListener('click', async () => {
