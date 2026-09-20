@@ -117,9 +117,16 @@
 <div class="page">
 
   <div id="appScreen">
-    <div class="topbar">
+    <div class="topbar" style="position:relative;">
       <h1>Kalkulator DW</h1>
       <span class="sub">Riwayat interpretasi per pasien — naikkan / turunkan berat kering</span>
+      <div style="position:relative;">
+        <button type="button" class="ghost" id="contactBtn" style="font-size:12px; padding:6px 12px;">Contact Person</button>
+        <div id="contactPopover" class="hidden" style="position:absolute; right:0; top:calc(100% + 6px); background:#fff; border:1px solid var(--line, #ddd); border-radius:8px; padding:10px 14px; box-shadow:0 4px 14px rgba(0,0,0,.12); white-space:nowrap; z-index:20;">
+          <div style="font-size:12px; color:var(--ink-soft); margin-bottom:4px;">Maulana Rahmat Hidayatullah</div>
+          <a href="mailto:maulanarahmathidayatullah@gmail.com" style="font-size:13px; color:var(--teal); text-decoration:none;">maulanarahmathidayatullah@gmail.com</a>
+        </div>
+      </div>
     </div>
 
     <section class="panel">
@@ -266,6 +273,18 @@ async function fetchHistory(patientId){
 async function saveHistory(patientId, entries){
   return lsSet(HISTORY_KEY_PREFIX + patientId, entries);
 }
+
+/* ===================== contact person popover ===================== */
+el('contactBtn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  el('contactPopover').classList.toggle('hidden');
+});
+document.addEventListener('click', (e) => {
+  const pop = el('contactPopover');
+  if(!pop.classList.contains('hidden') && !pop.contains(e.target) && e.target !== el('contactBtn')){
+    pop.classList.add('hidden');
+  }
+});
 
 /* ===================== app state ===================== */
 let activePatientId = null;
