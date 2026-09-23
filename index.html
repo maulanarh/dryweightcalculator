@@ -120,7 +120,6 @@
     <div class="topbar" style="position:relative;">
       <h1>Kalkulator DW</h1>
       <span class="sub-title" style="display:block; font-weight:600; color:var(--ink); font-size:14px; margin-top:2px;">Dry Weight Calculator - Pertahankan atau Sesuaikan Berat Badan Kering</span>
-      <span class="sub">Riwayat interpretasi per pasien — naikkan / turunkan berat badan kering</span>
       <div style="position:relative;">
         <button type="button" class="ghost" id="contactBtn" style="font-size:12px; padding:6px 12px;">Contact Person</button>
         <div id="contactPopover" class="hidden" style="position:absolute; right:0; top:calc(100% + 6px); background:#fff; border:1px solid var(--line, #ddd); border-radius:8px; padding:10px 14px; box-shadow:0 4px 14px rgba(0,0,0,.12); white-space:nowrap; z-index:20;">
@@ -505,9 +504,9 @@ function applyAutoTarget(){
   const underCount = document.querySelectorAll('.sign-under:checked').length;
   const overCount = document.querySelectorAll('.sign-over:checked').length;
   if(overCount > 0 && underCount === 0){
-    // hanya tanda overestimasi yang muncul
-    el('targetMin').value = 3;
-    el('targetMax').value = 4;
+    // hanya tanda overestimasi (hipervolemia) yang muncul
+    el('targetMin').value = 4;
+    el('targetMax').value = 3;
   } else {
     // hanya tanda underestimasi, tidak ada tanda sama sekali, atau keduanya muncul bersamaan → default
     el('targetMin').value = 2.5;
