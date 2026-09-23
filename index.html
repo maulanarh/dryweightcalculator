@@ -161,10 +161,16 @@
         </div>
         <div class="field-grid narrow">
           <label>Lama HD (jam) — opsional, untuk hitung rate <input type="number" step="0.1" id="durasiHD"></label>
+          <label>UF manual sesuai permintaan pasien (ml) <input type="number" step="1" id="ufManual" placeholder="opsional"></label>
         </div>
         <div class="result-strip">
           <div class="result-figure"><span class="result-label">Total UF</span><span class="result-value" id="ufTotalValue">–</span></div>
           <div class="result-figure"><span class="result-label">UF rate</span><span class="badge neutral" id="ufRateBadge">–</span></div>
+        </div>
+        <div id="ufManualNote" class="hidden" style="margin-top:14px; padding-top:14px; border-top:1px solid var(--line);">
+          <div class="result-figure" style="margin-bottom:8px;"><span class="result-label">Jika UF diset sesuai permintaan pasien</span><span class="result-value" id="ufManualResultDW" style="font-size:18px;">–</span></div>
+          <span class="badge neutral" id="ufManualBadge">–</span>
+          <p id="ufManualText" style="font-size:13.5px; margin:8px 0 0;"></p>
         </div>
       </section>
 
@@ -492,6 +498,7 @@ function clearCalcInputs(){
   el('flushingNaCl').value = '0';
   el('transfusiVol').value = '0';
   el('durasiHD').value = '';
+  el('ufManual').value = '';
   document.querySelectorAll('.sign-under, .sign-over').forEach(c => c.checked = false);
   el('checklistApproxWarning').classList.add('hidden');
   loadedHistoryIdx = null;
@@ -541,7 +548,7 @@ function calc(){
     el('ufTotalValue').textContent = '–'; el('ufRateBadge').textContent='–'; el('ufRateBadge').className='badge neutral';
     el('interpBadge').textContent = '–'; el('interpBadge').className = 'badge neutral';
     el('recommendationBody').innerHTML = '<p class="placeholder">Masukkan berat badan kering dan berat pre-HD yang valid (pre-HD harus lebih besar dari berat badan kering).</p>';
-    el('recommendationPanel').className = 'panel'; lastComputed = null; return;
+    el('recommendationPanel').className = 'panel'; el('ufManualNote').classList.add('hidden'); lastComputed = null; return;
   }
 
   const idwgKg = preHD - dw;
@@ -569,7 +576,43 @@ function calc(){
   }
 
   const floorDW = preHD / (1 + tMax/100);
-  const conservativeDW = preHD / (1 + tMin/100);
+  const dwAtTMin = preHD / (1 + tMin/100);
+  // "Konservatif" harus selalu berat yang lebih tinggi (perubahan lebih kecil) dan
+  // "maksimal dalam satu langkah" selalu berat yang lebih rendah (perubahan lebih besar),
+  // apa pun hubungan angka target konservatif vs batas maksimal yang diinput/di-auto-set.
+  const conservativeDW = Math.max(dwAtTMin, floorDW);
+  const aggressiveStepDW = Math.min(dwAtTMin, floorDW);
+  // UF yang dibutuhkan sesi ini agar BB pre-HD saat ini turun ke target tertentu
+  const ufForTarget = (targetDW) => (preHD - targetDW)*1000 + intake + priming + flushing + transfusi;
+  const ufAtAggressiveStep = ufForTarget(aggressiveStepDW); // UF lebih besar (target lebih rendah)
+  const ufAtConservativeDW = ufForTarget(conservativeDW);   // UF lebih kecil (target lebih tinggi)
+  const ufRangeLow = Math.min(ufAtAggressiveStep, ufAtConservativeDW);
+  const ufRangeHigh = Math.max(ufAtAggressiveStep, ufAtConservativeDW);
+
+  /* ---- UF manual sesuai permintaan pasien ---- */
+  const ufManualRaw = el('ufManual').value;
+  const ufManual = parseFloat(ufManualRaw);
+  if(ufManualRaw === '' || isNaN(ufManual) || ufManual <= 0){
+    el('ufManualNote').classList.add('hidden');
+  } else {
+    const resultingDW = preHD - (ufManual/1000);
+    el('ufManualNote').classList.remove('hidden');
+    el('ufManualResultDW').textContent = fmt(resultingDW) + ' kg';
+    if(resultingDW <= 0){
+      el('ufManualBadge').textContent = 'Tidak valid';
+      el('ufManualBadge').className = 'badge danger';
+      el('ufManualText').textContent = `UF ${fmtMl(ufManual)} ml lebih besar dari BB pre-HD (${fmt(preHD)} kg) — periksa kembali angkanya.`;
+    } else if(resultingDW < aggressiveStepDW){
+      el('ufManualBadge').textContent = 'Melebihi batas bawah aman';
+      el('ufManualBadge').className = 'badge danger';
+      el('ufManualText').textContent = `Jika UF ${fmtMl(ufManual)} ml diberikan, berat badan kering yang tercapai ≈ ${fmt(resultingDW)} kg — ini di bawah batas bawah aman (${fmt(aggressiveStepDW)} kg). Pertimbangkan turunkan target UF agar tidak melewati batas ini.`;
+    } else {
+      el('ufManualBadge').textContent = 'Sesuai rentang batas bawah aman';
+      el('ufManualBadge').className = 'badge safe';
+      el('ufManualText').textContent = `Jika UF ${fmtMl(ufManual)} ml diberikan, berat badan kering yang tercapai ≈ ${fmt(resultingDW)} kg — masih dalam rentang batas bawah aman (≥ ${fmt(aggressiveStepDW)} kg).`;
+    }
+  }
+
   const underBoxes = Array.from(document.querySelectorAll('.sign-under'));
   const overBoxes = Array.from(document.querySelectorAll('.sign-over'));
   const underCount = underBoxes.filter(c => c.checked).length;
@@ -584,16 +627,18 @@ function calc(){
   if(highIDWG && underCount>0 && overCount===0){
     state='danger';
     interp = { label: 'Pertimbangkan naikkan', cls: 'danger' };
-    summary = `IDWG ${fmt(idwgPct)}% + tanda underestimasi → floor aman ≈ ${fmt(floorDW)} kg`;
+    summary = `IDWG ${fmt(idwgPct)}% + tanda underestimasi → rentang BB kering ${fmt(aggressiveStepDW)}–${fmt(conservativeDW)} kg`;
     html += `<p>IDWG saat ini <strong>${fmt(idwgPct)}%</strong>, melebihi target maksimal ${fmt(tMax)}%, disertai tanda sugestif berat badan kering terlalu rendah.</p>`;
-    html += `<div class="figure-line">Batas bawah aman ≈ ${fmt(floorDW)} kg (BB pre-HD ${fmt(preHD)} kg ÷ (1+${fmt(tMax)}%))</div>`;
-    html += `<p>Pertimbangkan menaikkan berat badan kering mendekati angka ini, bukan menurunkannya lebih jauh.</p>`;
+    html += `<div class="figure-line">Rentang BB kering yang disarankan: ${fmt(aggressiveStepDW)} kg (batas bawah aman) – ${fmt(conservativeDW)} kg (target konservatif)</div>`;
+    html += `<div class="figure-line">Rentang UF sesi ini agar mencapai rentang tsb: ${fmtMl(ufRangeLow)} – ${fmtMl(ufRangeHigh)} ml</div>`;
+    html += `<p>Pertimbangkan menaikkan berat badan kering ke rentang ini, bukan menurunkannya lebih jauh.</p>`;
   } else if(!highIDWG && overCount>0 && underCount===0){
     state='caution';
     interp = { label: 'Pertimbangkan turunkan', cls: 'caution' };
-    summary = `IDWG ${fmt(idwgPct)}% (wajar) tapi ada tanda hipervolemia → geser turun ke ${fmt(floorDW)}–${fmt(conservativeDW)} kg`;
+    summary = `IDWG ${fmt(idwgPct)}% (wajar) tapi ada tanda hipervolemia → geser turun ke ${fmt(aggressiveStepDW)}–${fmt(conservativeDW)} kg`;
     html += `<p>IDWG saat ini <strong>${fmt(idwgPct)}%</strong> masih wajar, namun muncul tanda hipervolemia — ingat efek pembagi, IDWG rendah tidak menjamin berat badan kering sudah pas.</p>`;
-    html += `<div class="figure-line">Rentang penurunan bertahap: ${fmt(conservativeDW)} kg (konservatif) → maksimal ${fmt(floorDW)} kg dalam satu langkah</div>`;
+    html += `<div class="figure-line">Rentang penurunan bertahap: ${fmt(conservativeDW)} kg (konservatif) → maksimal ${fmt(aggressiveStepDW)} kg dalam satu langkah</div>`;
+    html += `<div class="figure-line">Rentang UF sesi ini untuk rentang tsb: ${fmtMl(ufRangeLow)} – ${fmtMl(ufRangeHigh)} ml</div>`;
     html += `<p>Turunkan bertahap, evaluasi ulang tanda klinis tiap sesi.</p>`;
   } else if(highIDWG && overCount>0 && underCount===0){
     state='mixed';
@@ -603,9 +648,10 @@ function calc(){
   } else if(!highIDWG && underCount>0 && overCount===0){
     state='caution';
     interp = { label: 'Sudah dekat batas bawah', cls: 'caution' };
-    summary = `IDWG ${fmt(idwgPct)}% wajar tapi ada tanda underestimasi → floor aman ≈ ${fmt(floorDW)} kg`;
+    summary = `IDWG ${fmt(idwgPct)}% wajar tapi ada tanda underestimasi → rentang BB kering ${fmt(aggressiveStepDW)}–${fmt(conservativeDW)} kg`;
     html += `<p>IDWG masih wajar (<strong>${fmt(idwgPct)}%</strong>) tapi muncul tanda underestimasi. Berat badan kering saat ini mungkin sudah mendekati titik bawah amannya.</p>`;
-    html += `<div class="figure-line">Batas bawah aman ≈ ${fmt(floorDW)} kg</div>`;
+    html += `<div class="figure-line">Rentang BB kering: ${fmt(aggressiveStepDW)} kg (batas bawah aman) – ${fmt(conservativeDW)} kg (target konservatif)</div>`;
+    html += `<div class="figure-line">Rentang UF yang masih sesuai rentang ini: ${fmtMl(ufRangeLow)} – ${fmtMl(ufRangeHigh)} ml</div>`;
   } else if(underCount>0 && overCount>0){
     state='mixed';
     interp = { label: 'Perlu evaluasi lanjut', cls: 'neutral' };
@@ -631,7 +677,7 @@ function calc(){
   lastComputed = { dw, preHD, tMin, tMax, idwgPct, idwgKg, category: cat.label, underCount, overCount, underChecked, overChecked, summary, ufTotal, ufRate, intake, priming, flushing, transfusi, durasi, interpretation: interp.label, interpretationCls: interp.cls };
 }
 
-['dryWeight','preHD','targetMin','targetMax','intakeIntraHD','primingWashout','flushingNaCl','transfusiVol','durasiHD'].forEach(id => el(id).addEventListener('input', calc));
+['dryWeight','preHD','targetMin','targetMax','intakeIntraHD','primingWashout','flushingNaCl','transfusiVol','durasiHD','ufManual'].forEach(id => el(id).addEventListener('input', calc));
 document.querySelectorAll('.sign-under, .sign-over').forEach(c => c.addEventListener('change', () => { applyAutoTarget(); calc(); }));
 
 /* ===================== history ===================== */
@@ -718,6 +764,7 @@ async function loadHistoryEntry(idx){
   el('flushingNaCl').value = h.flushing ?? 0;
   el('transfusiVol').value = h.transfusi ?? 0;
   el('durasiHD').value = (h.durasi !== undefined && h.durasi !== null && !isNaN(h.durasi)) ? h.durasi : '';
+  el('ufManual').value = '';
 
   const underBoxes = Array.from(document.querySelectorAll('.sign-under'));
   const overBoxes = Array.from(document.querySelectorAll('.sign-over'));
