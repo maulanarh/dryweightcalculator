@@ -119,7 +119,8 @@
   <div id="appScreen">
     <div class="topbar" style="position:relative;">
       <h1>Kalkulator DW</h1>
-      <span class="sub">Riwayat interpretasi per pasien — naikkan / turunkan berat kering</span>
+      <span class="sub-title" style="display:block; font-weight:600; color:var(--ink); font-size:14px; margin-top:2px;">Dry Weight Calculator - Pertahankan atau Sesuaikan Berat Badan Kering</span>
+      <span class="sub">Riwayat interpretasi per pasien — naikkan / turunkan berat badan kering</span>
       <div style="position:relative;">
         <button type="button" class="ghost" id="contactBtn" style="font-size:12px; padding:6px 12px;">Contact Person</button>
         <div id="contactPopover" class="hidden" style="position:absolute; right:0; top:calc(100% + 6px); background:#fff; border:1px solid var(--line, #ddd); border-radius:8px; padding:10px 14px; box-shadow:0 4px 14px rgba(0,0,0,.12); white-space:nowrap; z-index:20;">
@@ -142,7 +143,7 @@
       <section class="panel">
         <h2>Data sesi — <span id="activePatientLabel"></span></h2>
         <div class="field-grid">
-          <label>Berat kering saat ini (kg) <input type="number" step="0.1" id="dryWeight"></label>
+          <label>Berat badan kering saat ini (kg) <input type="number" step="0.1" id="dryWeight"></label>
           <label>Berat badan pre-HD sesi ini (kg) <input type="number" step="0.1" id="preHD"></label>
         </div>
         <div class="result-strip">
@@ -181,14 +182,14 @@
         <p id="checklistApproxWarning" class="hidden" style="font-size:13px; color:var(--amber); background:var(--amber-soft); padding:9px 12px; border-radius:3px; margin:-2px 0 16px;">⚠️ Ceklist di bawah adalah <strong>perkiraan</strong> — riwayat ini disimpan sebelum item ceklist direkam satu-per-satu, jadi sistem hanya menandai sejumlah item pertama sesuai jumlah yang tersimpan. Item yang tercentang belum tentu sama dengan yang aslinya dipilih saat itu. Verifikasi ulang secara klinis sebelum dipakai.</p>
         <div class="checklist-columns">
           <div class="checklist-group underest">
-            <h3>Sugestif berat kering terlalu rendah</h3>
+            <h3>Tanda Hipovolemia</h3>
             <label><input type="checkbox" class="sign-under"> Kram otot menjelang/akhir sesi HD</label>
             <label><input type="checkbox" class="sign-under"> Hipotensi intradialisis</label>
             <label><input type="checkbox" class="sign-under"> Pusing / lemas pasca-HD</label>
             <label><input type="checkbox" class="sign-under"> Sesi terpaksa diakhiri lebih awal</label>
           </div>
           <div class="checklist-group overest">
-            <h3>Sugestif berat kering terlalu tinggi</h3>
+            <h3>Tanda Hipervolemia</h3>
             <label><input type="checkbox" class="sign-over"> Edema perifer</label>
             <label><input type="checkbox" class="sign-over"> Sesak / ortopnue</label>
             <label><input type="checkbox" class="sign-over"> JVP meningkat</label>
@@ -201,7 +202,7 @@
       <section class="panel" id="recommendationPanel">
         <h2>Rekomendasi</h2>
         <div class="result-strip" style="margin-top:0; padding-top:0; border-top:none;">
-          <div class="result-figure"><span class="result-label">Interpretasi berat kering</span><span class="badge neutral" id="interpBadge">–</span></div>
+          <div class="result-figure"><span class="result-label">Interpretasi berat badan kering</span><span class="badge neutral" id="interpBadge">–</span></div>
         </div>
         <div id="recommendationBody" style="margin-top:14px;"><p class="placeholder">Isi data di atas untuk melihat rekomendasi.</p></div>
         <div style="margin-top:16px;">
@@ -438,7 +439,7 @@ el('downloadExcelBtn').addEventListener('click', async () => {
   }
   const patientName = el('activePatientLabel').textContent || 'pasien';
 
-  const header = ['Tanggal', 'BB kering (kg)', 'Pre-HD (kg)', 'IDWG (%)', 'IDWG (kg)', 'Kategori IDWG', 'Interpretasi berat kering', 'UF total (ml)', 'UF rate (ml/kg/jam)', 'Tanda underestimasi', 'Tanda overestimasi', 'Catatan'];
+  const header = ['Tanggal', 'BB kering (kg)', 'Pre-HD (kg)', 'IDWG (%)', 'IDWG (kg)', 'Kategori IDWG', 'Interpretasi berat badan kering', 'UF total (ml)', 'UF rate (ml/kg/jam)', 'Tanda underestimasi', 'Tanda overestimasi', 'Catatan'];
 
   const rows = history.map(h => {
     const d = new Date(h.date);
@@ -540,7 +541,7 @@ function calc(){
     el('idwgValue').textContent = '–'; el('idwgBadge').textContent='–'; el('idwgBadge').className='badge neutral';
     el('ufTotalValue').textContent = '–'; el('ufRateBadge').textContent='–'; el('ufRateBadge').className='badge neutral';
     el('interpBadge').textContent = '–'; el('interpBadge').className = 'badge neutral';
-    el('recommendationBody').innerHTML = '<p class="placeholder">Masukkan berat kering dan berat pre-HD yang valid (pre-HD harus lebih besar dari berat kering).</p>';
+    el('recommendationBody').innerHTML = '<p class="placeholder">Masukkan berat badan kering dan berat pre-HD yang valid (pre-HD harus lebih besar dari berat badan kering).</p>';
     el('recommendationPanel').className = 'panel'; lastComputed = null; return;
   }
 
@@ -585,26 +586,26 @@ function calc(){
     state='danger';
     interp = { label: 'Pertimbangkan naikkan', cls: 'danger' };
     summary = `IDWG ${fmt(idwgPct)}% + tanda underestimasi → floor aman ≈ ${fmt(floorDW)} kg`;
-    html += `<p>IDWG saat ini <strong>${fmt(idwgPct)}%</strong>, melebihi target maksimal ${fmt(tMax)}%, disertai tanda sugestif berat kering terlalu rendah.</p>`;
+    html += `<p>IDWG saat ini <strong>${fmt(idwgPct)}%</strong>, melebihi target maksimal ${fmt(tMax)}%, disertai tanda sugestif berat badan kering terlalu rendah.</p>`;
     html += `<div class="figure-line">Batas bawah aman ≈ ${fmt(floorDW)} kg (BB pre-HD ${fmt(preHD)} kg ÷ (1+${fmt(tMax)}%))</div>`;
-    html += `<p>Pertimbangkan menaikkan berat kering mendekati angka ini, bukan menurunkannya lebih jauh.</p>`;
+    html += `<p>Pertimbangkan menaikkan berat badan kering mendekati angka ini, bukan menurunkannya lebih jauh.</p>`;
   } else if(!highIDWG && overCount>0 && underCount===0){
     state='caution';
     interp = { label: 'Pertimbangkan turunkan', cls: 'caution' };
     summary = `IDWG ${fmt(idwgPct)}% (wajar) tapi ada tanda hipervolemia → geser turun ke ${fmt(floorDW)}–${fmt(conservativeDW)} kg`;
-    html += `<p>IDWG saat ini <strong>${fmt(idwgPct)}%</strong> masih wajar, namun muncul tanda hipervolemia — ingat efek pembagi, IDWG rendah tidak menjamin berat kering sudah pas.</p>`;
+    html += `<p>IDWG saat ini <strong>${fmt(idwgPct)}%</strong> masih wajar, namun muncul tanda hipervolemia — ingat efek pembagi, IDWG rendah tidak menjamin berat badan kering sudah pas.</p>`;
     html += `<div class="figure-line">Rentang penurunan bertahap: ${fmt(conservativeDW)} kg (konservatif) → maksimal ${fmt(floorDW)} kg dalam satu langkah</div>`;
     html += `<p>Turunkan bertahap, evaluasi ulang tanda klinis tiap sesi.</p>`;
   } else if(highIDWG && overCount>0 && underCount===0){
     state='mixed';
     interp = { label: 'Cek kepatuhan, bukan DW', cls: 'neutral' };
     summary = `IDWG ${fmt(idwgPct)}% tinggi + tanda hipervolemia tanpa tanda underestimasi → cek kepatuhan cairan/garam`;
-    html += `<p>IDWG tinggi (<strong>${fmt(idwgPct)}%</strong>) + tanda hipervolemia, tanpa tanda underestimasi — lebih mengarah ke masalah kepatuhan cairan/garam, bukan indikasi menaikkan berat kering.</p>`;
+    html += `<p>IDWG tinggi (<strong>${fmt(idwgPct)}%</strong>) + tanda hipervolemia, tanpa tanda underestimasi — lebih mengarah ke masalah kepatuhan cairan/garam, bukan indikasi menaikkan berat badan kering.</p>`;
   } else if(!highIDWG && underCount>0 && overCount===0){
     state='caution';
     interp = { label: 'Sudah dekat batas bawah', cls: 'caution' };
     summary = `IDWG ${fmt(idwgPct)}% wajar tapi ada tanda underestimasi → floor aman ≈ ${fmt(floorDW)} kg`;
-    html += `<p>IDWG masih wajar (<strong>${fmt(idwgPct)}%</strong>) tapi muncul tanda underestimasi. Berat kering saat ini mungkin sudah mendekati titik bawah amannya.</p>`;
+    html += `<p>IDWG masih wajar (<strong>${fmt(idwgPct)}%</strong>) tapi muncul tanda underestimasi. Berat badan kering saat ini mungkin sudah mendekati titik bawah amannya.</p>`;
     html += `<div class="figure-line">Batas bawah aman ≈ ${fmt(floorDW)} kg</div>`;
   } else if(underCount>0 && overCount>0){
     state='mixed';
@@ -620,7 +621,7 @@ function calc(){
     state='safe';
     interp = { label: 'Pertahankan', cls: 'safe' };
     summary = `IDWG ${fmt(idwgPct)}% wajar, tanpa tanda klinis mencurigakan`;
-    html += `<p>IDWG dalam rentang wajar (<strong>${fmt(idwgPct)}%</strong>) dan tidak ada tanda klinis mencurigakan. Berat kering saat ini tampak sesuai.</p>`;
+    html += `<p>IDWG dalam rentang wajar (<strong>${fmt(idwgPct)}%</strong>) dan tidak ada tanda klinis mencurigakan. Berat badan kering saat ini tampak sesuai.</p>`;
   }
 
   el('interpBadge').textContent = interp.label;
