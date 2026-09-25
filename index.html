@@ -596,20 +596,27 @@ function calc(){
     el('ufManualNote').classList.add('hidden');
   } else {
     const resultingDW = preHD - (ufManual/1000);
+    // Batas bawah aman efektif tidak boleh lebih ketat daripada BB kering yang sudah berlaku sekarang —
+    // kalau tidak, UF manual yang justru LEBIH RINGAN dari UF hasil hitung bisa salah ditandai "melebihi batas".
+    const effectiveFloorDW = Math.min(aggressiveStepDW, dw);
     el('ufManualNote').classList.remove('hidden');
     el('ufManualResultDW').textContent = fmt(resultingDW) + ' kg';
     if(resultingDW <= 0){
       el('ufManualBadge').textContent = 'Tidak valid';
       el('ufManualBadge').className = 'badge danger';
       el('ufManualText').textContent = `UF ${fmtMl(ufManual)} ml lebih besar dari BB pre-HD (${fmt(preHD)} kg) — periksa kembali angkanya.`;
-    } else if(resultingDW < aggressiveStepDW){
+    } else if(ufManual <= ufTotal){
+      el('ufManualBadge').textContent = 'Sesuai (≤ UF hasil hitung)';
+      el('ufManualBadge').className = 'badge safe';
+      el('ufManualText').textContent = `Jika UF ${fmtMl(ufManual)} ml diberikan, berat badan kering yang tercapai ≈ ${fmt(resultingDW)} kg. UF ini sama atau lebih kecil dari UF hasil hitung (${fmtMl(ufTotal)} ml), jadi sudah pasti masih di dalam batas bawah aman.`;
+    } else if(resultingDW < effectiveFloorDW){
       el('ufManualBadge').textContent = 'Melebihi batas bawah aman';
       el('ufManualBadge').className = 'badge danger';
-      el('ufManualText').textContent = `Jika UF ${fmtMl(ufManual)} ml diberikan, berat badan kering yang tercapai ≈ ${fmt(resultingDW)} kg — ini di bawah batas bawah aman (${fmt(aggressiveStepDW)} kg). Pertimbangkan turunkan target UF agar tidak melewati batas ini.`;
+      el('ufManualText').textContent = `UF ${fmtMl(ufManual)} ml lebih besar dari UF hasil hitung (${fmtMl(ufTotal)} ml). Berat badan kering yang tercapai ≈ ${fmt(resultingDW)} kg — ini di bawah batas bawah aman (${fmt(effectiveFloorDW)} kg). Pertimbangkan turunkan target UF agar tidak melewati batas ini.`;
     } else {
       el('ufManualBadge').textContent = 'Sesuai rentang batas bawah aman';
       el('ufManualBadge').className = 'badge safe';
-      el('ufManualText').textContent = `Jika UF ${fmtMl(ufManual)} ml diberikan, berat badan kering yang tercapai ≈ ${fmt(resultingDW)} kg — masih dalam rentang batas bawah aman (≥ ${fmt(aggressiveStepDW)} kg).`;
+      el('ufManualText').textContent = `UF ${fmtMl(ufManual)} ml lebih besar dari UF hasil hitung (${fmtMl(ufTotal)} ml), tapi berat badan kering yang tercapai ≈ ${fmt(resultingDW)} kg masih dalam rentang batas bawah aman (≥ ${fmt(effectiveFloorDW)} kg).`;
     }
   }
 
