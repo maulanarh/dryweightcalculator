@@ -161,16 +161,10 @@
         </div>
         <div class="field-grid narrow">
           <label>Lama HD (jam) — opsional, untuk hitung rate <input type="number" step="0.1" id="durasiHD"></label>
-          <label>UF manual sesuai permintaan pasien (ml) <input type="number" step="1" id="ufManual" placeholder="opsional"></label>
         </div>
         <div class="result-strip">
           <div class="result-figure"><span class="result-label">Total UF</span><span class="result-value" id="ufTotalValue">–</span></div>
           <div class="result-figure"><span class="result-label">UF rate</span><span class="badge neutral" id="ufRateBadge">–</span></div>
-        </div>
-        <div id="ufManualNote" class="hidden" style="margin-top:14px; padding-top:14px; border-top:1px solid var(--line);">
-          <div class="result-figure" style="margin-bottom:8px;"><span class="result-label">Jika UF diset sesuai permintaan pasien</span><span class="result-value" id="ufManualResultDW" style="font-size:18px;">–</span></div>
-          <span class="badge neutral" id="ufManualBadge">–</span>
-          <p id="ufManualText" style="font-size:13.5px; margin:8px 0 0;"></p>
         </div>
       </section>
 
@@ -498,7 +492,6 @@ function clearCalcInputs(){
   el('flushingNaCl').value = '0';
   el('transfusiVol').value = '0';
   el('durasiHD').value = '';
-  el('ufManual').value = '';
   document.querySelectorAll('.sign-under, .sign-over').forEach(c => c.checked = false);
   el('checklistApproxWarning').classList.add('hidden');
   loadedHistoryIdx = null;
@@ -548,7 +541,7 @@ function calc(){
     el('ufTotalValue').textContent = '–'; el('ufRateBadge').textContent='–'; el('ufRateBadge').className='badge neutral';
     el('interpBadge').textContent = '–'; el('interpBadge').className = 'badge neutral';
     el('recommendationBody').innerHTML = '<p class="placeholder">Masukkan berat badan kering dan berat pre-HD yang valid (pre-HD harus lebih besar dari berat badan kering).</p>';
-    el('recommendationPanel').className = 'panel'; el('ufManualNote').classList.add('hidden'); lastComputed = null; return;
+    el('recommendationPanel').className = 'panel'; lastComputed = null; return;
   }
 
   const idwgKg = preHD - dw;
@@ -588,37 +581,6 @@ function calc(){
   const ufAtConservativeDW = ufForTarget(conservativeDW);   // UF lebih kecil (target lebih tinggi)
   const ufRangeLow = Math.min(ufAtAggressiveStep, ufAtConservativeDW);
   const ufRangeHigh = Math.max(ufAtAggressiveStep, ufAtConservativeDW);
-
-  /* ---- UF manual sesuai permintaan pasien ---- */
-  const ufManualRaw = el('ufManual').value;
-  const ufManual = parseFloat(ufManualRaw);
-  if(ufManualRaw === '' || isNaN(ufManual) || ufManual <= 0){
-    el('ufManualNote').classList.add('hidden');
-  } else {
-    const resultingDW = preHD - (ufManual/1000);
-    // Batas bawah aman efektif tidak boleh lebih ketat daripada BB kering yang sudah berlaku sekarang —
-    // kalau tidak, UF manual yang justru LEBIH RINGAN dari UF hasil hitung bisa salah ditandai "melebihi batas".
-    const effectiveFloorDW = Math.min(aggressiveStepDW, dw);
-    el('ufManualNote').classList.remove('hidden');
-    el('ufManualResultDW').textContent = fmt(resultingDW) + ' kg';
-    if(resultingDW <= 0){
-      el('ufManualBadge').textContent = 'Tidak valid';
-      el('ufManualBadge').className = 'badge danger';
-      el('ufManualText').textContent = `UF ${fmtMl(ufManual)} ml lebih besar dari BB pre-HD (${fmt(preHD)} kg) — periksa kembali angkanya.`;
-    } else if(ufManual <= ufTotal){
-      el('ufManualBadge').textContent = 'Sesuai (≤ UF hasil hitung)';
-      el('ufManualBadge').className = 'badge safe';
-      el('ufManualText').textContent = `Jika UF ${fmtMl(ufManual)} ml diberikan, berat badan kering yang tercapai ≈ ${fmt(resultingDW)} kg. UF ini sama atau lebih kecil dari UF hasil hitung (${fmtMl(ufTotal)} ml), jadi sudah pasti masih di dalam batas bawah aman.`;
-    } else if(resultingDW < effectiveFloorDW){
-      el('ufManualBadge').textContent = 'Melebihi batas bawah aman';
-      el('ufManualBadge').className = 'badge danger';
-      el('ufManualText').textContent = `UF ${fmtMl(ufManual)} ml lebih besar dari UF hasil hitung (${fmtMl(ufTotal)} ml). Berat badan kering yang tercapai ≈ ${fmt(resultingDW)} kg — ini di bawah batas bawah aman (${fmt(effectiveFloorDW)} kg). Pertimbangkan turunkan target UF agar tidak melewati batas ini.`;
-    } else {
-      el('ufManualBadge').textContent = 'Sesuai rentang batas bawah aman';
-      el('ufManualBadge').className = 'badge safe';
-      el('ufManualText').textContent = `UF ${fmtMl(ufManual)} ml lebih besar dari UF hasil hitung (${fmtMl(ufTotal)} ml), tapi berat badan kering yang tercapai ≈ ${fmt(resultingDW)} kg masih dalam rentang batas bawah aman (≥ ${fmt(effectiveFloorDW)} kg).`;
-    }
-  }
 
   const underBoxes = Array.from(document.querySelectorAll('.sign-under'));
   const overBoxes = Array.from(document.querySelectorAll('.sign-over'));
@@ -684,7 +646,7 @@ function calc(){
   lastComputed = { dw, preHD, tMin, tMax, idwgPct, idwgKg, category: cat.label, underCount, overCount, underChecked, overChecked, summary, ufTotal, ufRate, intake, priming, flushing, transfusi, durasi, interpretation: interp.label, interpretationCls: interp.cls };
 }
 
-['dryWeight','preHD','targetMin','targetMax','intakeIntraHD','primingWashout','flushingNaCl','transfusiVol','durasiHD','ufManual'].forEach(id => el(id).addEventListener('input', calc));
+['dryWeight','preHD','targetMin','targetMax','intakeIntraHD','primingWashout','flushingNaCl','transfusiVol','durasiHD'].forEach(id => el(id).addEventListener('input', calc));
 document.querySelectorAll('.sign-under, .sign-over').forEach(c => c.addEventListener('change', () => { applyAutoTarget(); calc(); }));
 
 /* ===================== history ===================== */
@@ -771,7 +733,6 @@ async function loadHistoryEntry(idx){
   el('flushingNaCl').value = h.flushing ?? 0;
   el('transfusiVol').value = h.transfusi ?? 0;
   el('durasiHD').value = (h.durasi !== undefined && h.durasi !== null && !isNaN(h.durasi)) ? h.durasi : '';
-  el('ufManual').value = '';
 
   const underBoxes = Array.from(document.querySelectorAll('.sign-under'));
   const overBoxes = Array.from(document.querySelectorAll('.sign-over'));
