@@ -33,6 +33,13 @@
   button:disabled{opacity:.5; cursor:not-allowed;}
   button:hover:not(:disabled){filter:brightness(0.95);}
 
+  /* ---- navigasi antar kalkulator ---- */
+  .navlinks{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px;}
+  .navlinks a{font-family:'IBM Plex Sans', sans-serif; font-size:13px; font-weight:600; text-decoration:none; color:var(--teal); border:1px solid var(--teal); border-radius:3px; padding:6px 14px;}
+  .navlinks a:hover{background:var(--teal-soft);}
+  .navlinks a.cur{background:var(--teal); color:#fff; pointer-events:none;}
+  .navlinks a:focus-visible{outline:2px solid var(--teal); outline-offset:2px;}
+
   /* ---- panels ---- */
   section.panel{background:var(--surface); border:1px solid var(--line); border-left:3px solid var(--teal); border-radius:4px; padding:22px 24px; margin-bottom:20px;}
   section.panel h2{font-size:13px; color:var(--teal); font-weight:600; margin-bottom:16px;}
@@ -117,6 +124,10 @@
 <div class="page">
 
   <div id="appScreen">
+    <nav class="navlinks" aria-label="Kalkulator lain">
+      <a href="./" class="cur" aria-current="page">Pasien bisa timbang</a>
+      <a href="kalkulator-hd-riwayat/">Pasien tidak bisa timbang</a>
+    </nav>
     <div class="topbar" style="position:relative;">
       <h1>Kalkulator DW</h1>
       <span class="sub-title" style="display:block; font-weight:400; color:var(--ink); font-size:14px; margin-top:2px;">Dry Weight Calculator - Alat penghitung dry weight pasien HD agar tidak underestimasi atau overestimasi</span>
